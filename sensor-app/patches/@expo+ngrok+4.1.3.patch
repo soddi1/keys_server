@@ -1,0 +1,43 @@
+diff --git a/node_modules/@expo/ngrok/index.js b/node_modules/@expo/ngrok/index.js
+index c9e5f8d..7cbb966 100644
+--- a/node_modules/@expo/ngrok/index.js
++++ b/node_modules/@expo/ngrok/index.js
+@@ -11,10 +11,14 @@ const { defaults, validate, isRetriable } = require("./src/utils");
+ 
+ let processUrl = null;
+ let ngrokClient = null;
++const ENV_AUTHTOKEN = process.env.EXPO_DEV_TUNNEL_TOKEN ?? process.env.EXPO_TUNNEL_AUTHTOKEN ?? process.env.NGROK_AUTHTOKEN;
+ 
+ async function connect(opts) {
+   opts = defaults(opts);
+   validate(opts);
++  if (ENV_AUTHTOKEN) {
++    opts.authtoken = ENV_AUTHTOKEN;
++  }
+   if (opts.authtoken) {
+     await setAuthtoken(opts);
+   }
+diff --git a/node_modules/@expo/ngrok/src/client.js b/node_modules/@expo/ngrok/src/client.js
+index 3f748a3..74fcb59 100644
+--- a/node_modules/@expo/ngrok/src/client.js
++++ b/node_modules/@expo/ngrok/src/client.js
+@@ -27,6 +27,9 @@ class NgrokClient {
+         return await this.internalApi[method](path, { json: options }).json();
+       }
+     } catch (error) {
++      if (!error || !error.response) {
++        throw error;
++      }
+       let clientError;
+       try {
+         const response = JSON.parse(error.response.body);
+@@ -52,6 +55,9 @@ class NgrokClient {
+         (response) => response.statusCode === 204
+       );
+     } catch (error) {
++      if (!error || !error.response) {
++        throw error;
++      }
+       const response = JSON.parse(error.response.body);
+       throw new NgrokClientError(response.msg, error.response, response);
+     }

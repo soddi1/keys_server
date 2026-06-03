@@ -1,0 +1,7 @@
+# Python backend (hpc-server Flask APIs)
+# Install: pip install -r requirements.txt
+# Mobile app: npm install  (see package.json)
+
+flask>=2.3.0
+flask-cors>=4.0.0
+werkzeug>=2.3.0

@@ -1,0 +1,22 @@
+# Keystroke collector — local data
+keystroke_collector/data/
+
+# Sensor app — Node / Expo
+sensor-app/node_modules/
+sensor-app/.expo/
+sensor-app/dist/
+sensor-app/web-build/
+sensor-app/expo-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env*.local
+
+# OS / IDE
+.DS_Store
+.vscode/
+*.log
