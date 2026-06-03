@@ -32,16 +32,6 @@ npm install
 npx expo start --tunnel
 ```
 
-Flask server (HPC / local):
-
-```bash
-cd sensor-app
-pip install -r requirements.txt
-python hpc-server/python-flask/server.py
-# or: python hpc-server/server_1.py  (requires segmentation_v2 module)
-```
-
-
 
 Change the output directory in keystroke_collector_space_anchor.py at line 43.
 See `sensor-app/HPC_SETUP.md` and `sensor-app/QUICKSTART_HPC.md` for deployment notes.
