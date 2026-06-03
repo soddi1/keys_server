@@ -29,7 +29,7 @@ Collected JSON is written under `keystroke_collector/data/` (not in git).
 ```bash
 cd sensor-app
 npm install
-npx expo start --tunnel
+npx expo start
 ```
 
 
