@@ -8,6 +8,7 @@ import time
 import threading
 from datetime import date, datetime
 import json
+import subprocess
 from pathlib import Path
 try:
     from send_file import send_file_scp
@@ -36,6 +37,8 @@ class Ui_main(QtWidgets.QMainWindow):
         self.setupUi()
         self.show()
         self._center_on_screen()
+
+        self.beep_file = "./beep.mp3"
 
         self.script_dir = Path(__file__).resolve().parent
         self.data_dir = self.script_dir / "data"
@@ -488,6 +491,21 @@ class Ui_main(QtWidgets.QMainWindow):
         """Begin a typing session, recording the triggering space press as the anchor event."""
         self._cancel_second_space_delay()
         self.await_record_start = False
+
+        beep_wall_time_ns = time.time_ns()
+        beep_monotonic_ns = time.monotonic_ns()
+        subprocess.call(["afplay", self.beep_file])
+        beep_record = {
+            "type": "beep",
+            "key": "beep",
+            "event_ts_ms": None,
+            "event_ts_rel_ms": None,
+            "logged_wall_time_ns": beep_wall_time_ns,
+            "logged_monotonic_ns": beep_monotonic_ns,
+            "auto_repeat": False,
+        }
+        self.keystrokes.append('beep')
+        self.timestamps.append(beep_record)
 
         # Capture timestamps for the space keypress that starts the session.
         space_event_ts_ms = None
