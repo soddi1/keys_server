@@ -48,6 +48,15 @@ class Ui_main(QtWidgets.QMainWindow):
         self.flask_server_url = FLASK_SERVER_URL
 
     def keyPressEvent(self, e):
+        if getattr(self, "await_finish_space", False) and e.key() == Qt.Key_Space:
+            self._record_finish_space(e)
+            self.await_finish_space = False
+            self.finish_prompt_label.setVisible(False)
+            _next = self.session_id + 1
+            self.before_session()
+            self.resta(save_data=True, jump_to=_next)
+            e.accept()
+            return
         if getattr(self, "await_record_start", False) and e.key() == Qt.Key_Space:
             self._first_space_start_recording()
             e.accept()
@@ -102,6 +111,29 @@ class Ui_main(QtWidgets.QMainWindow):
 
         self.keystrokes.append(key_name)
         self.timestamps.append(record)
+
+    def _record_finish_space(self, event):
+        event_ts_ms = int(event.timestamp()) if hasattr(event, "timestamp") else None
+        if event_ts_ms is not None and event_ts_ms < 0:
+            event_ts_ms = None
+
+        space_wall_time_ns = time.time_ns()
+        space_monotonic_ns = time.monotonic_ns()
+        space_record = {
+            "type": "session_end_space",
+            "key": "space",
+            "event_ts_ms": event_ts_ms,
+            "event_ts_rel_ms": (
+                event_ts_ms - self.first_key_event_ts_ms
+                if event_ts_ms is not None and self.first_key_event_ts_ms is not None
+                else None
+            ),
+            "logged_wall_time_ns": space_wall_time_ns,
+            "logged_monotonic_ns": space_monotonic_ns,
+            "auto_repeat": bool(event.isAutoRepeat()),
+        }
+        self.keystrokes.append("space")
+        self.timestamps.append(space_record)
 
     # setup typing ui
     def setupUi(self):  
@@ -291,6 +323,7 @@ class Ui_main(QtWidgets.QMainWindow):
             ("location", "Location:"),
             ("keyboard", "Keyboard:"),
             ("table", "Table:"),
+            ("distance", "Distance:"),
         ]
         _row_y = 130
         _row_step = 38
@@ -325,6 +358,7 @@ class Ui_main(QtWidgets.QMainWindow):
         self.text_location = self.id_fields["location"]
         self.text_keyboard = self.id_fields["keyboard"]
         self.text_table = self.id_fields["table"]
+        self.text_distance = self.id_fields["distance"]
         self.text_name.setFocus()
 
         self.enter = QtWidgets.QPushButton(self.centralwidget)
@@ -382,11 +416,20 @@ class Ui_main(QtWidgets.QMainWindow):
         self.jump.setGeometry(QtCore.QRect(_cx + 150, 80, 80, 40))
         self.jump.setFocusPolicy(Qt.NoFocus)
 
+        self.finish_prompt_label = QtWidgets.QLabel(self.centralwidget)
+        self.finish_prompt_label.setGeometry(QtCore.QRect(_cx - 460, _H // 2 + 90, 920, 40))
+        self.finish_prompt_label.setFont(QFont('Arial', 16))
+        self.finish_prompt_label.setText("Press [Spacebar] to finish this sentence")
+        self.finish_prompt_label.setAlignment(Qt.AlignCenter)
+        self.finish_prompt_label.setStyleSheet("color: rgb(100, 100, 100);")
+        self.finish_prompt_label.setVisible(False)
+
         self.that_size = 0
         self.that_cursor = 0
         self.change_curs(0)
         self.rest_now = False
         self.await_record_start = False
+        self.await_finish_space = False
         self.waiting_for_second_space = False
         self._second_space_timer = QtCore.QTimer(self)
         self._second_space_timer.setSingleShot(True)
@@ -425,15 +468,15 @@ class Ui_main(QtWidgets.QMainWindow):
         return self.id_fields[key].text().strip()
 
     def _base_name(self):
-        """Join the four identity fields with '_' to form the filename base."""
-        return "_".join(self._field_value(key) for key in ("name", "location", "keyboard", "table"))
+        """Join the five identity fields with '_' to form the filename base."""
+        return "_".join(self._field_value(key) for key in ("name", "location", "keyboard", "table", "distance"))
 
     def _session_filename(self):
         """Filename base for the current sentence, e.g. name_location_keyboard_table_001."""
         return f"{self._base_name()}_{self.session_id + 1:03d}"
 
     def set_user(self):
-        if all(self._field_value(key) for key in ("name", "location", "keyboard", "table")):
+        if all(self._field_value(key) for key in ("name", "location", "keyboard", "table", "distance")):
             self.before_session()
     
 
@@ -455,6 +498,8 @@ class Ui_main(QtWidgets.QMainWindow):
 
     def before_session(self):
         self._cancel_second_space_delay()
+        self.await_finish_space = False
+        self.finish_prompt_label.setVisible(False)
         self.rest_show.setVisible(True)
         self.text_show.setVisible(False)
         self.setFocus()
@@ -492,22 +537,11 @@ class Ui_main(QtWidgets.QMainWindow):
         self._cancel_second_space_delay()
         self.await_record_start = False
 
+        # Capture all timestamps at the moment of the spacebar press, before
+        # the blocking afplay call delays execution.
         beep_wall_time_ns = time.time_ns()
         beep_monotonic_ns = time.monotonic_ns()
-        subprocess.call(["afplay", self.beep_file])
-        beep_record = {
-            "type": "beep",
-            "key": "beep",
-            "event_ts_ms": None,
-            "event_ts_rel_ms": None,
-            "logged_wall_time_ns": beep_wall_time_ns,
-            "logged_monotonic_ns": beep_monotonic_ns,
-            "auto_repeat": False,
-        }
-        self.keystrokes.append('beep')
-        self.timestamps.append(beep_record)
 
-        # Capture timestamps for the space keypress that starts the session.
         space_event_ts_ms = None
         if space_event is not None and hasattr(space_event, "timestamp"):
             ts = int(space_event.timestamp())
@@ -521,6 +555,21 @@ class Ui_main(QtWidgets.QMainWindow):
         self.session_start_wall_time_ns = space_wall_time_ns
         self.session_start_monotonic_ns = space_monotonic_ns
         self.first_key_event_ts_ms = space_event_ts_ms
+
+        # Play the beep (blocks until audio finishes; UI shows after).
+        subprocess.call(["afplay", self.beep_file])
+
+        beep_record = {
+            "type": "beep",
+            "key": "beep",
+            "event_ts_ms": None,
+            "event_ts_rel_ms": None,
+            "logged_wall_time_ns": beep_wall_time_ns,
+            "logged_monotonic_ns": beep_monotonic_ns,
+            "auto_repeat": False,
+        }
+        self.keystrokes.append('beep')
+        self.timestamps.append(beep_record)
 
         # Record the space as the first entry so the JSON preserves it.
         space_record = {
@@ -568,10 +617,11 @@ class Ui_main(QtWidgets.QMainWindow):
                 'session_start_monotonic_ns': self.session_start_monotonic_ns,
                 'first_key_event_ts_ms': self.first_key_event_ts_ms,
                 'note': (
-                    'The first entry in timestamps (type=session_start_space) is the space '
-                    'keypress that triggered the session. Its logged_wall_time_ns and '
-                    'logged_monotonic_ns are the synchronisation anchor for IMU and '
-                    'microphone recordings. event_ts_ms is the OS/Qt event timestamp and is '
+                    'The session_start_space entry is the space keypress that triggered the '
+                    'session; its logged_wall_time_ns and logged_monotonic_ns are the '
+                    'synchronisation anchor for IMU and microphone recordings. The '
+                    'session_end_space entry is the space keypress after typing that marks '
+                    'sentence completion. event_ts_ms is the OS/Qt event timestamp and is '
                     'the best estimate of when the key event occurred. logged_* timestamps '
                     'are when Python recorded the event.'
                 ),
@@ -698,8 +748,9 @@ class Ui_main(QtWidgets.QMainWindow):
             self._trim_overflow()
             if txt == tstr:
                 self.change_color(ind, 1)
-                self.before_session()
-                self.resta(save_data=True, jump_to=self.session_id+1)
+                self.await_finish_space = True
+                self.finish_prompt_label.setVisible(True)
+                self.setFocus()
             else:
                 self.change_color(ind, 2)
 

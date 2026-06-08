@@ -291,6 +291,7 @@ class Ui_main(QtWidgets.QMainWindow):
             ("location", "Location:"),
             ("keyboard", "Keyboard:"),
             ("table", "Table:"),
+            ("distance", "Distance:"),
         ]
         _row_y = 130
         _row_step = 38
@@ -325,6 +326,7 @@ class Ui_main(QtWidgets.QMainWindow):
         self.text_location = self.id_fields["location"]
         self.text_keyboard = self.id_fields["keyboard"]
         self.text_table = self.id_fields["table"]
+        self.text_distance = self.id_fields["distance"]
         self.text_name.setFocus()
 
         self.enter = QtWidgets.QPushButton(self.centralwidget)
@@ -425,15 +427,15 @@ class Ui_main(QtWidgets.QMainWindow):
         return self.id_fields[key].text().strip()
 
     def _base_name(self):
-        """Join the four identity fields with '_' to form the filename base."""
-        return "_".join(self._field_value(key) for key in ("name", "location", "keyboard", "table"))
+        """Join the five identity fields with '_' to form the filename base."""
+        return "_".join(self._field_value(key) for key in ("name", "location", "keyboard", "table", "distance"))
 
     def _session_filename(self):
         """Filename base for the current sentence, e.g. name_location_keyboard_table_001."""
         return f"{self._base_name()}_{self.session_id + 1:03d}"
 
     def set_user(self):
-        if all(self._field_value(key) for key in ("name", "location", "keyboard", "table")):
+        if all(self._field_value(key) for key in ("name", "location", "keyboard", "table", "distance")):
             self.before_session()
     
 
